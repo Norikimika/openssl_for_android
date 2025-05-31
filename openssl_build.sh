@@ -17,21 +17,20 @@
 ################################################################################
 
 ################################################################################
-#   build OpenSSL for Android armeabi mips mips64
+#   build OpenSSL for Android armeabi-v7a arm64-v8a x86 x86_64 riscv64
 #   support Linux and macOS
 ################################################################################
 
 
 WORK_PATH=$(cd "$(dirname "$0")";pwd)
 
-ANDROID_TARGET_API=$1
-ANDROID_TARGET_ABI=$2
-OPENSSL_VERSION=$3
-ANDROID_NDK_VERSION=$4
+ANDROID_TARGET_ABI=$1
+OPENSSL_VERSION=$2
+ANDROID_NDK_VERSION=$3
 ANDROID_NDK_PATH=${WORK_PATH}/android-ndk-${ANDROID_NDK_VERSION}
 OPENSSL_PATH=${WORK_PATH}/openssl-${OPENSSL_VERSION}
 OUTPUT_PATH=${WORK_PATH}/openssl_${OPENSSL_VERSION}_${ANDROID_TARGET_ABI}
-OPENSSL_OPTIONS="no-apps no-asm no-docs no-engine no-gost no-legacy no-shared no-ssl no-tests no-zlib"
+OPENSSL_OPTIONS="no-asm no-docs no-engine no-gost no-legacy no-shared no-tests no-zlib"
 
 if [ "$(uname -s)" == "Darwin" ]; then
     echo "Build on macOS..."
@@ -52,15 +51,16 @@ function build(){
     export CXXFLAGS="-fPIC -Os"
     export CPPFLAGS="-DANDROID -fPIC -Os"
 
-    if   [ "${ANDROID_TARGET_ABI}" == "armeabi" ]; then
-        export PATH=${ANDROID_NDK_ROOT}/toolchains/arm-linux-androideabi-4.9/prebuilt/${PLATFORM}-x86_64/bin:$PATH
-        ./Configure android-arm    -D__ANDROID_API__=${ANDROID_TARGET_API} -static ${OPENSSL_OPTIONS} --prefix=${OUTPUT_PATH}
-    elif [ "${ANDROID_TARGET_ABI}" == "mips"   ]; then
-        export PATH=${ANDROID_NDK_ROOT}/toolchains/mipsel-linux-android-4.9/prebuilt/${PLATFORM}-x86_64/bin:$PATH
-        ./Configure android-mips   -D__ANDROID_API__=${ANDROID_TARGET_API} -static ${OPENSSL_OPTIONS} --prefix=${OUTPUT_PATH}
-    elif [ "${ANDROID_TARGET_ABI}" == "mips64" ]; then
-        export PATH=${ANDROID_NDK_ROOT}/toolchains/mips64el-linux-android-4.9/prebuilt/${PLATFORM}-x86_64/bin:$PATH
-        ./Configure android-mips64 -D__ANDROID_API__=${ANDROID_TARGET_API} -static ${OPENSSL_OPTIONS} --prefix=${OUTPUT_PATH}
+    if   [ "${ANDROID_TARGET_ABI}" == "armeabi-v7a" ]; then
+        ./Configure android-arm -static ${OPENSSL_OPTIONS} --prefix=${OUTPUT_PATH}
+    elif [ "${ANDROID_TARGET_ABI}" == "arm64-v8a"   ]; then
+        ./Configure android-arm64 -static ${OPENSSL_OPTIONS} --prefix=${OUTPUT_PATH}
+    elif [ "${ANDROID_TARGET_ABI}" == "x86"         ]; then
+        ./Configure android-x86 -static ${OPENSSL_OPTIONS} --prefix=${OUTPUT_PATH}
+    elif [ "${ANDROID_TARGET_ABI}" == "x86_64"      ]; then
+        ./Configure android-x86_64 -static ${OPENSSL_OPTIONS} --prefix=${OUTPUT_PATH}
+    elif [ "${ANDROID_TARGET_ABI}" == "riscv64"     ]; then
+        ./Configure android-riscv64 -static ${OPENSSL_OPTIONS} --prefix=${OUTPUT_PATH}
     else
         echo "Unsupported target ABI: ${ANDROID_TARGET_ABI}"
         exit 1
@@ -69,12 +69,21 @@ function build(){
     make -j$(nproc)
     make install
 
+    echo "Stripping binaries..."
+    STRIP_TOOL=${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${PLATFORM}-x86_64/bin/llvm-strip
+
+    if [ -f "${OUTPUT_PATH}/bin/openssl" ]; then
+        echo "Stripping ${OUTPUT_PATH}/bin/openssl"
+        ${STRIP_TOOL} ${OUTPUT_PATH}/bin/openssl
+    else
+        echo "Warning: ${OUTPUT_PATH}/bin/openssl not found, skipping strip."
+    fi
+
     echo "Build completed! Check output libraries in ${OUTPUT_PATH}"
 }
 
 function clean(){
     if [ -d ${OUTPUT_PATH} ]; then
-        rm -rf ${OUTPUT_PATH}/bin
         rm -rf ${OUTPUT_PATH}/share
         rm -rf ${OUTPUT_PATH}/ssl
         rm -rf ${OUTPUT_PATH}/lib/cmake
