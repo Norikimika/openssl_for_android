@@ -48,8 +48,8 @@ function build(){
 
     export ANDROID_NDK_ROOT=${ANDROID_NDK_PATH}
     export PATH=${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${PLATFORM}-x86_64/bin:$PATH
-    export CXXFLAGS="-fPIC -Os"
-    export CPPFLAGS="-DANDROID -fPIC -Os"
+    export CXXFLAGS="-fPIC -Os -flto"
+    export CPPFLAGS="-DANDROID -fPIC -Os -flto"
 
     if   [ "${ANDROID_TARGET_ABI}" == "armeabi-v7a" ]; then
         ./Configure android-arm -static ${OPENSSL_OPTIONS} --prefix=${OUTPUT_PATH}
