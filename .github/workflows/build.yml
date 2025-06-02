@@ -6,7 +6,6 @@ on:
     branches: [ master ]
 
 env:
-  OPENSSL_VERSION: 3.5.0
   WORK_PATH: /home/runner/work/openssl_for_android/openssl_for_android
 
 jobs:
@@ -17,34 +16,44 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        info:
-          - '{ "ANDROID_TARGET_ABI": "armeabi-v7a", "ANDROID_NDK": "r27c"}'
-          - '{ "ANDROID_TARGET_ABI": "arm64-v8a", "ANDROID_NDK": "r27c"}'
-          - '{ "ANDROID_TARGET_ABI": "riscv64", "ANDROID_NDK": "r27c"}'
-          - '{ "ANDROID_TARGET_ABI": "x86", "ANDROID_NDK": "r27c"}'
-          - '{ "ANDROID_TARGET_ABI": "x86_64", "ANDROID_NDK": "r27c"}'
-    
+        include:
+          - ANDROID_TARGET_ABI: arm64-v8a
+          - ANDROID_TARGET_ABI: armeabi-v7a
+          - ANDROID_TARGET_ABI: x86_64
+          - ANDROID_TARGET_ABI: x86
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
 
+      - name: Get latest Android NDK version
+        run: |
+          tag_name=$(curl -s https://api.github.com/repos/android/ndk/releases/latest | jq -r .tag_name)
+          echo "NDK_VERSION=$tag_name" >> $GITHUB_ENV
+
       - name: Download Android NDK
         run: |
-          aria2c -o android-ndk-${{fromJSON(matrix.info).ANDROID_NDK}}.zip https://dl.google.com/android/repository/android-ndk-${{fromJSON(matrix.info).ANDROID_NDK}}-linux.zip
-          unzip android-ndk-${{fromJSON(matrix.info).ANDROID_NDK}}.zip
+          aria2c -o android-ndk-${{ env.NDK_VERSION }}.zip https://dl.google.com/android/repository/android-ndk-${{ env.NDK_VERSION }}-linux.zip
+          unzip android-ndk-${{ env.NDK_VERSION }}.zip
+
+      - name: Get latest OpenSSL version
+        run: |
+          tag_name=$(curl -s https://api.github.com/repos/openssl/openssl/releases/latest | jq -r .tag_name)
+          version=${tag_name#openssl-}
+          echo "OPENSSL_VERSION=$version" >> $GITHUB_ENV
 
       - name: Download OpenSSL
         run: |
-          aria2c -o openssl-${{env.OPENSSL_VERSION}}.tar.gz https://github.com/openssl/openssl/releases/download/openssl-${{env.OPENSSL_VERSION}}/openssl-${{env.OPENSSL_VERSION}}.tar.gz
-          tar -zxvf openssl-${{env.OPENSSL_VERSION}}.tar.gz
+          aria2c -o openssl-${{ env.OPENSSL_VERSION }}.tar.gz https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
+          tar -zxvf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
 
-      - name: Compile
+      - name: Compile OpenSSL
         run: |
-          bash ./openssl_build.sh ${{fromJSON(matrix.info).ANDROID_TARGET_ABI}} ${{env.OPENSSL_VERSION}} ${{fromJSON(matrix.info).ANDROID_NDK}}
+          bash ./openssl_build.sh ${{ matrix.ANDROID_TARGET_ABI }} ${{ env.OPENSSL_VERSION }} ${{ env.NDK_VERSION }}
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: OpenSSL_${{env.OPENSSL_VERSION}}_${{fromJSON(matrix.info).ANDROID_TARGET_ABI}}.zip
-          path: openssl_${{env.OPENSSL_VERSION}}_${{fromJSON(matrix.info).ANDROID_TARGET_ABI}}
+          name: OpenSSL_${{ env.OPENSSL_VERSION }}_${{ matrix.ANDROID_TARGET_ABI }}.zip
+          path: openssl_${{ env.OPENSSL_VERSION }}_${{ matrix.ANDROID_TARGET_ABI }}
           retention-days: 7
