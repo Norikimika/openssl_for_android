@@ -57,3 +57,12 @@ jobs:
           name: OpenSSL_${{ env.OPENSSL_VERSION }}_${{ matrix.ANDROID_TARGET_ABI }}.zip
           path: openssl_${{ env.OPENSSL_VERSION }}_${{ matrix.ANDROID_TARGET_ABI }}
           retention-days: 7
+
+      - name: Upload firmware to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_TOPIC_ID: ${{ secrets.TELEGRAM_TOPIC_ID }}
+        run: |
+           zip -r openssl_${{ env.OPENSSL_VERSION }}_${{ matrix.ANDROID_TARGET_ABI }}.zip openssl_${{ env.OPENSSL_VERSION }}_${{ matrix.ANDROID_TARGET_ABI }}
+           python3 ./errorbot.py "openssl_${{ env.OPENSSL_VERSION }}_${{ matrix.ANDROID_TARGET_ABI }}.zip"
